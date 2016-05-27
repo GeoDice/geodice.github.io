@@ -1008,7 +1008,7 @@ var ChatBox = React.createClass({
                 el.span(
                   {
                     style: {
-                      fontFamily: 'monospace'
+                      fontFamily: 'comic'
                     }
                   },
                   helpers.formatDateToTime(m.created_at),

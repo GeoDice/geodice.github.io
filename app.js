@@ -1455,7 +1455,7 @@ var BetBoxButton = React.createClass({
       // If there's a betbox error, then render button in error state
 
       var errorTranslations = {
-        'CANNOT_AFFORD_WAGER': 'You cannot afford wager',
+        'CANNOT_AFFORD_WAGER': 'Balance too low',
         'INVALID_WAGER': 'Invalid wager',
         'INVALID_MULTIPLIER': 'Invalid multiplier',
         'MULTIPLIER_TOO_PRECISE': 'Multiplier too precise',

@@ -1939,7 +1939,7 @@ var BetRow = React.createClass({
         {
           className: 'text-right',
           style: {
-            fontFamily: 'monospace'
+            fontFamily: 'comic'
           }
         },
         bet.cond + bet.target.toFixed(2)
@@ -1954,7 +1954,7 @@ var BetRow = React.createClass({
         {
           style: {
             //position: 'relative'
-            fontFamily: 'monospace'
+            fontFamily: 'comic'
           }
         },
         // progress bar container
@@ -2025,7 +2025,7 @@ var BetRow = React.createClass({
               //   {className: 'glyphicon glyphicon-arrow-up'}
               // ),
               el.span(
-                {style: {fontFamily: 'monospace'}},
+                {style: {fontFamily: 'comic'}},
                 '' + bet.outcome
               )
             )

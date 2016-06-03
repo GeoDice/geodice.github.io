@@ -9,7 +9,7 @@ var config = {
   app_name: 'HYPER DICE',
   // - For your faucet to work, you must register your site at Recaptcha
   // - https://www.google.com/recaptcha/intro/index.html
-  recaptcha_sitekey: '6LddCiETAAAAAJKqJs1NfVAvkXnt1XFEkmo8_P6U',  // <----- EDIT ME!
+  recaptcha_sitekey: '6LflCiETAAAAAHGzpR7MDquBh0vj33qVA8ME_1hk',  // <----- EDIT ME!
   redirect_uri: 'https://hyperdice.github.io',
   mp_browser_uri: 'https://www.moneypot.com',
   mp_api_uri: 'https://api.moneypot.com',

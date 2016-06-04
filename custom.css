@@ -10,6 +10,6 @@ body {
    background-color: #333333;
 }
 
-.nav.navbar-nav {
-    background-color: transparent;
+.navbar {
+    background-color: white;
  }

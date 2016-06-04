@@ -476,6 +476,33 @@ var betStore = new Store('bet', {
     num: 2.00,
     error: undefined
   },
+  // AUTOBETTING ADDITION
+  betNumbers: {
+    str: '1',
+    num: 1,
+    error: undefined
+  },
+  multiplyonWin: {
+    str: '1',
+    num: 1,
+    error: undefined
+  },
+  multiplyonLose: {
+    str: '1',
+    num: 1,
+    error: undefined
+  },
+  baseWager: {
+    str: '1',
+    num: 1,
+    error: undefined
+  },
+  autoWager: {
+    str: '1',
+    num: 1,
+    error: undefined
+  },
+// END AUTOBETTING ADDITION
   hotkeysEnabled: false
 }, function() {
   var self = this;

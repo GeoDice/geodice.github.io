@@ -7,7 +7,8 @@
 /* The following example turns the background to yellow if you uncomment it. */
 
 body {
-   background-color: #333333;
+   background-image: url('bg-img.jpg');
+   background-repeat: repeat;
    color: gray;
 }
 

@@ -13,12 +13,12 @@ var config = {
   redirect_uri: 'https://geodice.github.io',
   mp_browser_uri: 'https://www.moneypot.com',
   mp_api_uri: 'https://api.moneypot.com',
-  chat_uri: '//socket.moneypot.com',
+  chat_uri: 'https://socket.moneypot.com',
   // - Show debug output only if running on localhost
   debug: isRunningLocally(),
   // - Set this to true if you want users that come to http:// to be redirected
   //   to https://
-  force_https_redirect: !isRunningLocally(),
+  force_https_redirect: false,
   // - Configure the house edge (default is 1%)
   //   Must be between 0.0 (0%) and 1.0 (100%)
   house_edge: 0.01,
@@ -476,7 +476,7 @@ var betStore = new Store('bet', {
     num: 2.00,
     error: undefined
   },
-  // AUTOBETTING ADDITION
+// AUTOBETTING ADDITION
   betNumbers: {
     str: '1',
     num: 1,
@@ -540,6 +540,73 @@ var betStore = new Store('bet', {
     self.emitter.emit('change', self.state);
   });
 
+// AUTOBETTING ADDITION
+  Dispatcher.registerCallback('UPDATE_BASEWAGER', function(newWager) {
+    self.state.baseWager = _.merge({}, self.state.baseWager, newWager);
+
+    var n = parseInt(self.state.baseWager.str, 10);
+
+    // If n is a number, ensure it's at least 1 bit
+    if (isFinite(n)) {
+      n = Math.max(n, 1);
+      self.state.baseWager.str = n.toString();
+    }
+
+    // Ensure wagerString is a number
+    if (isNaN(n) || /[^\d]/.test(n.toString())) {
+      self.state.baseWager.error = 'INVALID_WAGER';
+    // Ensure user can afford balance
+    } else if (n * 100 > worldStore.state.user.balance) {
+      self.state.baseWager.error = 'CANNOT_AFFORD_WAGER';
+      self.state.baseWager.num = n;
+    } else {
+      // wagerString is valid
+      self.state.baseWager.error = null;
+      self.state.baseWager.str = n.toString();
+      self.state.baseWager.num = n;
+      self.state.autoWager.error = null;
+      self.state.autoWager.str = n.toString();
+      self.state.autoWager.num = n;
+    }
+
+    self.emitter.emit('change', self.state);
+  });
+
+  Dispatcher.registerCallback('UPDATE_ROLLSLIMIT', function(newLimit) {
+    self.state.betNumbers = _.merge({}, self.state.betNumbers, newLimit);
+
+    var n = parseInt(self.state.betNumbers.str, 10);
+
+    // If n is a number, ensure it's at least 1 roll
+    if (isFinite(n)) {
+      n = Math.max(n, 1);
+      self.state.betNumbers.str = n.toString();
+    }
+
+    // Ensure wagerString is a number
+    if (isNaN(n) || /[^\d]/.test(n.toString())) {
+      self.state.betNumbers.error = 'INVALID_LIMIT';
+    } else {
+      // wagerString is valid
+      self.state.betNumbers.error = null;
+      self.state.betNumbers.str = n.toString();
+      self.state.betNumbers.num = n;
+    }
+
+    self.emitter.emit('change', self.state);
+  });
+
+  Dispatcher.registerCallback('UPDATE_MULTIPLYONWIN', function(newMult) {
+    self.state.multiplyonWin = _.merge({}, self.state.multiplyonWin, newMult);
+    self.emitter.emit('change', self.state);
+  });
+
+  Dispatcher.registerCallback('UPDATE_MULTIPLYONLOSE', function(newMult) {
+    self.state.multiplyonLose = _.merge({}, self.state.multiplyonLose, newMult);
+    self.emitter.emit('change', self.state);
+  });
+// END AUTOBETTING ADDITION
+
   Dispatcher.registerCallback('UPDATE_MULTIPLIER', function(newMult) {
     self.state.multiplier = _.merge({}, self.state.multiplier, newMult);
     self.emitter.emit('change', self.state);
@@ -554,6 +621,14 @@ var worldStore = new Store('world', {
   accessToken: access_token,
   isRefreshingUser: false,
   hotkeysEnabled: false,
+// AUTOBETTING ADDITION
+  autobettingEnabled: false,
+  stoponwinEnabled: false,
+  resetonwinEnabled: false,
+  stoponloseEnabled: false,
+  resetonloseEnabled: false,
+  rollslimitEnabled: true,
+// END AUTOBETTING ADDITION
   currTab: 'ALL_BETS',
   // TODO: Turn this into myBets or something
   bets: new CBuffer(config.bet_buffer_size),
@@ -632,6 +707,38 @@ var worldStore = new Store('world', {
     self.state.hotkeysEnabled = false;
     self.emitter.emit('change', self.state);
   });
+
+// AUTOBETTING ADDITION
+  Dispatcher.registerCallback('TOGGLE_AUTOBETTING', function() {
+    self.state.autobettingEnabled = !self.state.autobettingEnabled;
+    self.emitter.emit('change', self.state);
+  });
+  
+  Dispatcher.registerCallback('TOGGLE_STOPONWIN', function() {
+    self.state.stoponwinEnabled = !self.state.stoponwinEnabled;
+    self.emitter.emit('change', self.state);
+  });
+  
+  Dispatcher.registerCallback('TOGGLE_RESETONWIN', function() {
+    self.state.resetonwinEnabled = !self.state.resetonwinEnabled;
+    self.emitter.emit('change', self.state);
+  });
+  
+  Dispatcher.registerCallback('TOGGLE_STOPONLOSE', function() {
+    self.state.stoponloseEnabled = !self.state.stoponloseEnabled;
+    self.emitter.emit('change', self.state);
+  });
+  
+  Dispatcher.registerCallback('TOGGLE_RESETONLOSE', function() {
+    self.state.resetonloseEnabled = !self.state.resetonloseEnabled;
+    self.emitter.emit('change', self.state);
+  });
+  
+  Dispatcher.registerCallback('TOGGLE_ROLLSLIMIT', function() {
+    self.state.rollslimitEnabled = !self.state.rollslimitEnabled;
+    self.emitter.emit('change', self.state);
+  });
+// END AUTOBETTING ADDITION
 
   Dispatcher.registerCallback('START_REFRESHING_USER', function() {
     self.state.isRefreshingUser = true;
@@ -1373,6 +1480,7 @@ var BetBoxWager = React.createClass({
   }
 });
 
+// AUTOBETTING ADDITION (THIS BETBOXBUTTON IS MODIFIED)
 var BetBoxButton = React.createClass({
   displayName: 'BetBoxButton',
   _onStoreChange: function() {
@@ -1404,9 +1512,10 @@ var BetBoxButton = React.createClass({
       var hash = betStore.state.nextHash;
       console.assert(typeof hash === 'string');
 
-      var wagerSatoshis = betStore.state.wager.num * 100;
+      var wagerSatoshis = worldStore.state.autobettingEnabled ? betStore.state.autoWager.num * 100 : betStore.state.wager.num * 100;
       var multiplier = betStore.state.multiplier.num;
       var payoutSatoshis = wagerSatoshis * multiplier;
+	  var betProfit;
 
       var number = helpers.calcNumber(
         cond, helpers.multiplierToWinProb(multiplier)
@@ -1425,7 +1534,7 @@ var BetBoxButton = React.createClass({
         success: function(bet) {
           console.log('Successfully placed bet:', bet);
           // Append to bet list
-
+		  betProfit = bet.profit;
           // We don't get this info from the API, so assoc it for our use
           bet.meta = {
             cond: cond,
@@ -1459,9 +1568,108 @@ var BetBoxButton = React.createClass({
         complete: function() {
           self.setState({ waitingForServer: false });
           // Force re-validation of wager
-          Dispatcher.sendAction('UPDATE_WAGER', {
-            str: betStore.state.wager.str
-          });
+// IF NOT AUTOBETTING
+		  if(!worldStore.state.autobettingEnabled) {
+            Dispatcher.sendAction('UPDATE_WAGER', {
+              str: betStore.state.wager.str
+            });
+// IF AUTOBETTING
+		  } else {
+// Check if number of rolls disabled
+		    if(!worldStore.state.rollslimitEnabled) {
+// Check bet result win or lose
+			  if(betProfit < 0) { // Lose bet
+// Check stop on lose
+				if(!worldStore.state.stoponloseEnabled) { // If not enabled
+// Check if reset on lose enabled
+				  if(!worldStore.state.resetonloseEnabled) { // If not enabled
+				    betStore.state.autoWager.num = betStore.state.autoWager.num*betStore.state.multiplyonLose.str;
+				  } else { // If reset enabled
+				    betStore.state.autoWager.num = betStore.state.baseWager.num;
+				  }
+                  if(cond === '<') {
+					$('#bet-lo').click();
+				  } else {
+					$('#bet-hi').click();
+				  }
+				} else {
+				  Dispatcher.sendAction('UPDATE_BASEWAGER', {
+					str: betStore.state.baseWager.str
+				  });
+				}
+			  } else if(betProfit >= 0) { // Win bet
+// Check stop on win
+				if(!worldStore.state.stoponwinEnabled) { // If not enabled
+// Check if reset on win enabled
+				  if(!worldStore.state.resetonwinEnabled) { // If not enabled
+				    betStore.state.autoWager.num = betStore.state.autoWager.num*betStore.state.multiplyonWin.str;
+				  } else { // If reset enabled
+				    betStore.state.autoWager.num = betStore.state.baseWager.num;
+				  }
+                  if(cond === '<') {
+					$('#bet-lo').click();
+				  } else {
+					$('#bet-hi').click();
+				  }
+				} else {
+				  Dispatcher.sendAction('UPDATE_BASEWAGER', {
+					str: betStore.state.baseWager.str
+				  });
+				}
+			  }
+// If number of rolls enabled
+			} else {
+// Check if number of rolls is still remain
+		      if(betStore.state.betNumbers.str > 1) {
+				betStore.state.betNumbers.str = betStore.state.betNumbers.str-1;
+// Check bet result win or lose
+			    if(betProfit < 0) { // Lose bet
+// Check stop on lose
+				  if(!worldStore.state.stoponloseEnabled) { // If not enabled
+// Check if reset on lose enabled
+				    if(!worldStore.state.resetonloseEnabled) { // If not enabled
+				      betStore.state.autoWager.num = betStore.state.autoWager.num*betStore.state.multiplyonLose.str;
+				    } else { // If reset enabled
+				      betStore.state.autoWager.num = betStore.state.baseWager.num;
+				    }
+                    if(cond === '<') {
+					  $('#bet-lo').click();
+				    } else {
+					  $('#bet-hi').click();
+				    }
+				  } else {
+				    Dispatcher.sendAction('UPDATE_BASEWAGER', {
+					  str: betStore.state.baseWager.str
+				    });
+				  }
+			    } else if(betProfit >= 0) { // Win bet
+// Check stop on win
+				  if(!worldStore.state.stoponwinEnabled) { // If not enabled
+// Check if reset on win enabled
+				    if(!worldStore.state.resetonwinEnabled) { // If not enabled
+				      betStore.state.autoWager.num = betStore.state.autoWager.num*betStore.state.multiplyonWin.str;
+				    } else { // If reset enabled
+				      betStore.state.autoWager.num = betStore.state.baseWager.num;
+				    }
+                    if(cond === '<') {
+					  $('#bet-lo').click();
+				    } else {
+					  $('#bet-hi').click();
+				    }
+				  } else {
+				    Dispatcher.sendAction('UPDATE_BASEWAGER', {
+					  str: betStore.state.baseWager.str
+				    });
+				  }
+			    }
+			  } else {
+				Dispatcher.sendAction('UPDATE_BASEWAGER', {
+				  str: betStore.state.baseWager.str
+				});
+			  }
+			}
+		  }
+// END AUTOBETTING
         }
       });
     };
@@ -1589,6 +1797,549 @@ var HotkeyToggle = React.createClass({
   }
 });
 
+// AUTOBETTING ADDITION
+var AutobettingToggle = React.createClass({
+  displayName: 'AutobettingToggle',
+  _onClick: function() {
+    Dispatcher.sendAction('TOGGLE_AUTOBETTING');
+  },
+  render: function() {
+    return (
+      el.div(
+        {className: 'text-center'},
+        el.button(
+          {
+            type: 'button',
+            className: 'btn btn-default btn-sm',
+            onClick: this._onClick,
+            style: { marginTop: '-15px' }
+          },
+          'Auto Bets: ',
+          worldStore.state.autobettingEnabled ?
+            el.span({className: 'label label-success'}, 'ON') :
+          el.span({className: 'label label-default'}, 'OFF')
+        )
+      )
+    );
+  }
+});
+
+var StopOnWinToggle = React.createClass({
+  displayName: 'StopOnWinToggle',
+  _onClick: function() {
+    Dispatcher.sendAction('TOGGLE_STOPONWIN');
+  },
+  render: function() {
+    return (
+      el.div(
+        {className: 'text-center'},
+        el.button(
+          {
+            type: 'button',
+            className: 'btn btn-default btn-sm',
+            onClick: this._onClick,
+            style: { marginTop: '0px' }
+          },
+          '',
+          worldStore.state.stoponwinEnabled ?
+            el.span({className: 'label label-success'}, 'ON') :
+          el.span({className: 'label label-default'}, 'OFF')
+        )
+      )
+    );
+  }
+});
+
+var ResetOnWinToggle = React.createClass({
+  displayName: 'ResetOnWinToggle',
+  _onClick: function() {
+    Dispatcher.sendAction('TOGGLE_RESETONWIN');
+  },
+  render: function() {
+    return (
+      el.div(
+        {className: 'text-center'},
+        el.button(
+          {
+            type: 'button',
+            className: 'btn btn-default btn-sm',
+            onClick: this._onClick,
+            style: { marginTop: '0px' }
+          },
+          '',
+          worldStore.state.resetonwinEnabled ?
+            el.span({className: 'label label-success'}, 'ON') :
+          el.span({className: 'label label-default'}, 'OFF')
+        )
+      )
+    );
+  }
+});
+
+var StopOnLoseToggle = React.createClass({
+  displayName: 'StopOnLoseToggle',
+  _onClick: function() {
+    Dispatcher.sendAction('TOGGLE_STOPONLOSE');
+  },
+  render: function() {
+    return (
+      el.div(
+        {className: 'text-center'},
+        el.button(
+          {
+            type: 'button',
+            className: 'btn btn-default btn-sm',
+            onClick: this._onClick,
+            style: { marginTop: '0px' }
+          },
+          '',
+          worldStore.state.stoponloseEnabled ?
+            el.span({className: 'label label-success'}, 'ON') :
+          el.span({className: 'label label-default'}, 'OFF')
+        )
+      )
+    );
+  }
+});
+
+var ResetOnLoseToggle = React.createClass({
+  displayName: 'ResetOnLoseToggle',
+  _onClick: function() {
+    Dispatcher.sendAction('TOGGLE_RESETONLOSE');
+  },
+  render: function() {
+    return (
+      el.div(
+        {className: 'text-center'},
+        el.button(
+          {
+            type: 'button',
+            className: 'btn btn-default btn-sm',
+            onClick: this._onClick,
+            style: { marginTop: '0px' }
+          },
+          '',
+          worldStore.state.resetonloseEnabled ?
+            el.span({className: 'label label-success'}, 'ON') :
+          el.span({className: 'label label-default'}, 'OFF')
+        )
+      )
+    );
+  }
+});
+
+var RollsLimitToggle = React.createClass({
+  displayName: 'RollsLimitToggle',
+  _onClick: function() {
+    Dispatcher.sendAction('TOGGLE_ROLLSLIMIT');
+  },
+  render: function() {
+    return (
+      el.div(
+        {className: 'text-center'},
+        el.button(
+          {
+            type: 'button',
+            className: 'btn btn-default btn-sm',
+            onClick: this._onClick,
+            style: { marginTop: '0px' }
+          },
+          '',
+          worldStore.state.rollslimitEnabled ?
+            el.span({className: 'label label-success'}, 'ON') :
+          el.span({className: 'label label-default'}, 'OFF')
+        )
+      )
+    );
+  }
+});
+
+var AutoToolBox = React.createClass({
+  displayName: 'AutoToolBox',
+  _onStoreChange: function() {
+    this.forceUpdate();
+  },
+  componentDidMount: function() {
+    worldStore.on('change', this._onStoreChange);
+  },
+  componentWillUnmount: function() {
+    worldStore.off('change', this._onStoreChange);
+  },
+  render: function() {
+    return (
+      el.div(
+      null,
+// ON WIN PROPERTIES
+        el.div(
+          {className: 'col-xs-4', style: { textAlign: 'left' }},
+          el.div(
+            {className: 'row', style: { marginTop: '5px' }},
+            el.div(
+              {className: 'col-xs-12', style: { textAlign: 'left', marginTop: '5px' }},
+              'ON WIN'
+		    )
+		  ),
+          el.div(
+            {className: 'row', style: { marginTop: '5px' }},
+            el.div(
+              {className: 'col-xs-5', style: { textAlign: 'left' }},
+              React.createElement(StopOnWinToggle, null)
+		    ),
+            el.div(
+              {className: 'col-xs-7', style: { textAlign: 'left', marginTop: '5px' }},
+              'STOP'
+		    )
+		  ),
+          el.div(
+            {className: 'row', style: { marginTop: '5px' }},
+            el.div(
+              {className: 'col-xs-5', style: { textAlign: 'left' }},
+              worldStore.state.stoponwinEnabled ? '' : React.createElement(ResetOnWinToggle, null)
+		    ),
+            el.div(
+              {className: 'col-xs-7', style: { textAlign: 'left', marginTop: '5px' }},
+              worldStore.state.stoponwinEnabled ? '' : 'RESET'
+		    )
+		  ),
+          el.div(
+            {className: 'row', style: { marginTop: '5px' }},
+            worldStore.state.stoponwinEnabled ? '' : React.createElement(MultiplyOnWinBox, null)
+		  )
+        ),
+// ON LOSE PROPERTIES
+        el.div(
+          {className: 'col-xs-4', style: { textAlign: 'left', backgroundColor: '#3E444C' }},
+          el.div(
+            {className: 'row', style: { marginTop: '5px' }},
+            el.div(
+              {className: 'col-xs-12', style: { textAlign: 'left', marginTop: '5px' }},
+              'ON LOSE'
+		    )
+		  ),
+          el.div(
+            {className: 'row', style: { marginTop: '5px' }},
+            el.div(
+              {className: 'col-xs-5', style: { textAlign: 'left' }},
+              React.createElement(StopOnLoseToggle, null)
+		    ),
+            el.div(
+              {className: 'col-xs-7', style: { textAlign: 'left', marginTop: '5px' }},
+              'STOP'
+		    )
+		  ),
+          el.div(
+            {className: 'row', style: { marginTop: '5px' }},
+            el.div(
+              {className: 'col-xs-5', style: { textAlign: 'left' }},
+              worldStore.state.stoponloseEnabled ? '' : React.createElement(ResetOnLoseToggle, null)
+		    ),
+            el.div(
+              {className: 'col-xs-7', style: { textAlign: 'left', marginTop: '5px' }},
+              worldStore.state.stoponloseEnabled ? '' : 'RESET'
+		    )
+		  ),
+          el.div(
+            {className: 'row', style: { marginTop: '5px' }},
+            worldStore.state.stoponloseEnabled ? '' : React.createElement(MultiplyOnLoseBox, null)
+		  )
+        ),
+// ROLLS LIMIT PROPERTIES
+        el.div(
+          {className: 'col-xs-4', style: { textAlign: 'left' }},
+          el.div(
+            {className: 'row', style: { marginTop: '5px' }},
+            el.div(
+              {className: 'col-xs-12', style: { textAlign: 'left', marginTop: '5px' }},
+              'ROLL NUMBERS'
+		    )
+		  ),
+          el.div(
+            {className: 'row', style: { marginTop: '5px' }},
+            el.div(
+              {className: 'col-xs-5', style: { textAlign: 'left' }},
+              React.createElement(RollsLimitToggle, null)
+		    ),
+            el.div(
+              {className: 'col-xs-7', style: { textAlign: 'left', marginTop: '5px' }},
+              'LIMIT'
+		    )
+		  ),
+          el.div(
+            {className: 'row', style: { marginTop: '5px' }},
+            worldStore.state.rollslimitEnabled ? React.createElement(AutoRollsLimitBox, null) : ''
+		  )
+        )
+      )
+    );
+  }
+});
+
+var AutoBoxWager = React.createClass({
+  displayName: 'AutoBoxWager',
+  // Hookup to stores
+  _onStoreChange: function() {
+    this.forceUpdate();
+  },
+  _onBalanceChange: function() {
+    // Force validation when user logs in
+    // TODO: Re-force it when user refreshes
+    Dispatcher.sendAction('UPDATE_BASEWAGER', {});
+  },
+  componentDidMount: function() {
+    betStore.on('change', this._onStoreChange);
+    worldStore.on('change', this._onStoreChange);
+    worldStore.on('user_update', this._onBalanceChange);
+  },
+  componentWillUnmount: function() {
+    betStore.off('change', this._onStoreChange);
+    worldStore.off('change', this._onStoreChange);
+    worldStore.off('user_update', this._onBalanceChange);
+  },
+  _onWagerChange: function(e) {
+    var str = e.target.value;
+    Dispatcher.sendAction('UPDATE_BASEWAGER', { str: str });
+  },
+  //
+  render: function() {
+    return el.div(
+      {className: 'form-group'},
+      el.p(
+        {className: 'lead'},
+        el.strong(
+          // If wagerError, make the label red
+          betStore.state.wager.error ? { style: {color: 'red'} } : null,
+          'Base Wager:')
+      ),
+      el.input(
+        {
+          value: betStore.state.baseWager.str,
+          type: 'text',
+          className: 'form-control input-lg',
+          onChange: this._onWagerChange,
+          disabled: !!worldStore.state.isLoading,
+          placeholder: 'Bits'
+        }
+      )
+    );
+  }
+});
+
+var AutoRollsLimitBox = React.createClass({
+  displayName: 'AutoRollsLimitBox',
+  // Hookup to stores
+  _onStoreChange: function() {
+    this.forceUpdate();
+  },
+  componentDidMount: function() {
+    betStore.on('change', this._onStoreChange);
+    worldStore.on('change', this._onStoreChange);
+  },
+  componentWillUnmount: function() {
+    betStore.off('change', this._onStoreChange);
+    worldStore.off('change', this._onStoreChange);
+  },
+  _onLimitChange: function(e) {
+    var str = e.target.value;
+    Dispatcher.sendAction('UPDATE_ROLLSLIMIT', { str: str });
+  },
+  //
+  render: function() {
+    return (
+      el.div(
+      null,
+	    el.div(
+          {className: 'col-xs-12', style: { textAlign: 'left', marginTop: '5px' }},
+          'Number of rolls :'
+	    ),
+	    el.div(
+          {className: 'col-xs-12', style: { textAlign: 'left', marginTop: '5px' }},
+          el.div(
+            {className: 'form-group'},
+            el.div(
+              {className: 'input-group'},
+              el.input(
+                {
+                  type: 'text',
+                  value: betStore.state.betNumbers.str,
+                  className: 'form-control input-sm',
+                  onChange: this._onLimitChange,
+                  disabled: !!worldStore.state.isLoading
+                }
+              ),
+              el.span(
+                {className: 'input-group-addon'},
+                'Rolls'
+              )
+            )
+		  )
+		)
+	  )
+    );
+  }
+});
+
+var MultiplyOnWinBox = React.createClass({
+  displayName: 'MultiplyOnWinBox',
+  render: function() {
+    return (
+      el.div(
+      null,
+	    el.div(
+          {className: 'col-xs-12', style: { textAlign: 'left', marginTop: '5px' }},
+          worldStore.state.resetonwinEnabled ? '' : 'Multiply by :'
+	    ),
+	    el.div(
+          {className: 'col-sm-12', style: { textAlign: 'left' }},
+          worldStore.state.resetonwinEnabled ? '' : React.createElement(MultiplyOnWinInputBox, null)
+	    )
+	  )
+	);
+  }
+});
+
+var MultiplyOnLoseBox = React.createClass({
+  displayName: 'MultiplyOnLoseBox',
+  render: function() {
+    return (
+      el.div(
+      null,
+	    el.div(
+          {className: 'col-xs-12', style: { textAlign: 'left', marginTop: '5px' }},
+          worldStore.state.resetonloseEnabled ? '' : 'Multiply by :'
+	    ),
+	    el.div(
+          {className: 'col-sm-12', style: { textAlign: 'left' }},
+          worldStore.state.resetonloseEnabled ? '' : React.createElement(MultiplyOnLoseInputBox, null)
+	    )
+	  )
+	);
+  }
+});
+
+var MultiplyOnWinInputBox = React.createClass({
+  displayName: 'MultiplyOnWinInputBox',
+  // Hookup to stores
+  _onStoreChange: function() {
+    this.forceUpdate();
+  },
+  componentDidMount: function() {
+    betStore.on('change', this._onStoreChange);
+    worldStore.on('change', this._onStoreChange);
+  },
+  componentWillUnmount: function() {
+    betStore.off('change', this._onStoreChange);
+    worldStore.off('change', this._onStoreChange);
+  },
+  _validateMultiplier: function(newStr) {
+    var num = parseFloat(newStr, 10);
+    var isFloatRegexp = /^(\d*\.)?\d+$/;
+
+    // Ensure str is a number
+    if (isNaN(num) || !isFloatRegexp.test(newStr)) {
+      Dispatcher.sendAction('UPDATE_MULTIPLYONWIN', { error: 'INVALID_MULTIPLIER' });
+      // Ensure no more than 2 decimal places of precision
+    } else if (helpers.getPrecision(num) > 1) {
+      Dispatcher.sendAction('UPDATE_MULTIPLYONWIN', { error: 'MULTIPLIER_TOO_PRECISE' });
+      // multiplier str is valid
+    } else {
+      Dispatcher.sendAction('UPDATE_MULTIPLYONWIN', {
+        num: num,
+        error: null
+      });
+    }
+  },
+  _onMultiplyChange: function(e) {
+    var str = e.target.value;
+    Dispatcher.sendAction('UPDATE_MULTIPLYONWIN', { str: str });
+    this._validateMultiplier(str);
+  },
+  //
+  render: function() {
+    return el.div(
+      {className: 'form-group'},
+      el.div(
+        {className: 'input-group'},
+        el.input(
+          {
+            type: 'text',
+            value: betStore.state.multiplyonWin.str,
+            className: 'form-control input-sm',
+            onChange: this._onMultiplyChange,
+            disabled: !!worldStore.state.isLoading
+          }
+        ),
+        el.span(
+          {className: 'input-group-addon'},
+          'x'
+        )
+      )
+    );
+  }
+});
+
+var MultiplyOnLoseInputBox = React.createClass({
+  displayName: 'MultiplyOnLoseInputBox',
+  // Hookup to stores
+  _onStoreChange: function() {
+    this.forceUpdate();
+  },
+  componentDidMount: function() {
+    betStore.on('change', this._onStoreChange);
+    worldStore.on('change', this._onStoreChange);
+  },
+  componentWillUnmount: function() {
+    betStore.off('change', this._onStoreChange);
+    worldStore.off('change', this._onStoreChange);
+  },
+  _validateMultiplier: function(newStr) {
+    var num = parseFloat(newStr, 10);
+    var isFloatRegexp = /^(\d*\.)?\d+$/;
+
+    // Ensure str is a number
+    if (isNaN(num) || !isFloatRegexp.test(newStr)) {
+      Dispatcher.sendAction('UPDATE_MULTIPLYONLOSE', { error: 'INVALID_MULTIPLIER' });
+      // Ensure no more than 2 decimal places of precision
+    } else if (helpers.getPrecision(num) > 1) {
+      Dispatcher.sendAction('UPDATE_MULTIPLYONLOSE', { error: 'MULTIPLIER_TOO_PRECISE' });
+      // multiplier str is valid
+    } else {
+      Dispatcher.sendAction('UPDATE_MULTIPLYONLOSE', {
+        num: num,
+        error: null
+      });
+    }
+  },
+  _onMultiplyChange: function(e) {
+    var str = e.target.value;
+    Dispatcher.sendAction('UPDATE_MULTIPLYONLOSE', { str: str });
+    this._validateMultiplier(str);
+  },
+  //
+  render: function() {
+    return el.div(
+      {className: 'form-group'},
+      el.div(
+        {className: 'input-group'},
+        el.input(
+          {
+            type: 'text',
+            value: betStore.state.multiplyonLose.str,
+            className: 'form-control input-sm',
+            onChange: this._onMultiplyChange,
+            disabled: !!worldStore.state.isLoading
+          }
+        ),
+        el.span(
+          {className: 'input-group-addon'},
+          'x'
+        )
+      )
+    );
+  }
+});
+// END AUTOBETTING ADDITION
+
+// AUTOBETTING ADDITION (THIS BETBOX IS MODIFIED)
 var BetBox = React.createClass({
   displayName: 'BetBox',
   _onStoreChange: function() {
@@ -1611,11 +2362,11 @@ var BetBox = React.createClass({
             {className: 'row'},
             el.div(
               {className: 'col-xs-6'},
-              React.createElement(BetBoxWager, null)
+			  worldStore.state.autobettingEnabled ? React.createElement(AutoBoxWager, null) : React.createElement(BetBoxWager, null)
             ),
             el.div(
               {className: 'col-xs-6'},
-              React.createElement(BetBoxMultiplier, null)
+			  React.createElement(BetBoxMultiplier, null)
             ),
             // HR
             el.div(
@@ -1629,12 +2380,16 @@ var BetBox = React.createClass({
             el.div(
               null,
               el.div(
-                {className: 'col-sm-6'},
-                React.createElement(BetBoxProfit, null)
+                {className: 'col-sm-12'},
+			    worldStore.state.autobettingEnabled ? React.createElement(AutoToolBox, null) : ''
               ),
               el.div(
                 {className: 'col-sm-6'},
-                React.createElement(BetBoxChance, null)
+			    worldStore.state.autobettingEnabled ? '' : React.createElement(BetBoxProfit, null)
+              ),
+              el.div(
+                {className: 'col-sm-6'},
+			    worldStore.state.autobettingEnabled ? '' : React.createElement(BetBoxChance, null)
               )
             )
           )
@@ -1644,7 +2399,18 @@ var BetBox = React.createClass({
           React.createElement(BetBoxButton, null)
         )
       ),
-      React.createElement(HotkeyToggle, null)
+// END AUTOBETTING ADDITION (BETBOX)
+
+// AUTOBETTING ADDITION
+      el.div(
+        {className: 'col-xs-6', style: { textAlign: 'center' }},
+        React.createElement(AutobettingToggle, null)
+      ),
+// END AUTOBETTING ADDITION
+      el.div(
+        {className: 'col-xs-6', style: { textAlign: 'center' }},
+        React.createElement(HotkeyToggle, null)
+      )
     );
   }
 });

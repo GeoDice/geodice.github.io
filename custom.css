@@ -14,3 +14,7 @@ body {
 .navbar {
     background-color: white;
  }
+
+.btn.btn-default.navbar-btn.btn-xs:hover {
+    color: black;
+}

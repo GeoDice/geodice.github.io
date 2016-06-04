@@ -4,13 +4,13 @@
 
 var config = {
   // - Your app's id on moneypot.com
-  app_id: 1179,                             // <----------------------------- EDIT ME!
+  app_id: 1237,                             // <----------------------------- EDIT ME!
   // - Displayed in the navbar
-  app_name: 'HYPER DICE',
+  app_name: 'Geo-Dice',
   // - For your faucet to work, you must register your site at Recaptcha
   // - https://www.google.com/recaptcha/intro/index.html
-  recaptcha_sitekey: '6LflCiETAAAAAHGzpR7MDquBh0vj33qVA8ME_1hk',  // <----- EDIT ME!
-  redirect_uri: 'https://hyperdice.github.io',
+  recaptcha_sitekey: '6Lc4wSETAAAAABMbRANchPXj22fnXeE7CygA4g2d',  // <----- EDIT ME!
+  redirect_uri: 'https://geodice.github.io',
   mp_browser_uri: 'https://www.moneypot.com',
   mp_api_uri: 'https://api.moneypot.com',
   chat_uri: '//socket.moneypot.com',
